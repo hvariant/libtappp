@@ -9,6 +9,7 @@ namespace TAP {
   double EPSILON = 1.e-4;
 
 	std::string TODO = "";
+   bool OPTIONAL = false;
 
 	const details::skip_all_type skip_all = details::skip_all_type();
 	const details::no_plan_type no_plan = details::no_plan_type();
@@ -18,35 +19,41 @@ namespace TAP {
 		unsigned counter = 0;
 		unsigned not_oks = 0;
 
-		std::string todo_test() throw() {
+		std::string todo_test(bool is_ok) noexcept(false) {
 			if (TODO == "") {
-				return TODO;
+            if(OPTIONAL && !is_ok)
+            {
+               return " # OPTIONAL";
+            }
+				return "";
 			}
 			else {
 				return " # TODO " + TODO;
 			}
 		}
 
-		bool is_todo_test() throw() { return TODO != ""; }
+		bool is_todo_test() noexcept(false) {
+         return TODO != "" || OPTIONAL;
+      }
 
 		bool is_planned = false;
 		bool no_planned = false;
 		bool has_output_plan = false;
 
-		void output_plan(unsigned tests, const std::string& extra = "") throw(fatal_exception) {
+		void output_plan(unsigned tests, const std::string& extra = "") noexcept(false) {
 			if (has_output_plan) {
 				throw fatal_exception("Can't plan twice");
 			}
 			*details::output << "1.." << tests << extra << std::endl;
 			has_output_plan = true;
 		}
-		inline const std::string to_string(unsigned num) throw() {
+		inline const std::string to_string(unsigned num) noexcept(false) {
 			std::stringstream out;
 			out << num;
 			return out.str();
 		}
 
-		inline void _done_testing(unsigned tests) throw(fatal_exception) {
+		inline void _done_testing(unsigned tests) noexcept(false) {
 			static bool is_done = false;
 			if (is_done) {
 				fail("done_testing() was already called");
@@ -68,7 +75,7 @@ namespace TAP {
 
 	}
 
-	void plan(unsigned tests) throw(fatal_exception) {
+	void plan(unsigned tests) noexcept(false) {
 		if (is_planned) {
 			bail_out("Can't plan again!");
 		}
@@ -76,32 +83,32 @@ namespace TAP {
 		output_plan(tests);
 		expected = tests;
 	}
-	void plan(const details::skip_all_type&, const std::string& reason) throw(fatal_exception) {
-		output_plan(0, " #skip " + reason);
+	void plan(const details::skip_all_type&, const std::string& reason) noexcept(false) {
+		output_plan(0, " # skip " + reason);
 		std::exit(0);
 	}
-	void plan(const details::no_plan_type&) throw() {
+	void plan(const details::no_plan_type&) noexcept(false) {
 		is_planned = true;
 		no_planned = true;
 	}
 
-	void done_testing() throw(fatal_exception) {
+	void done_testing() noexcept(false) {
 		_done_testing(encountered());
 	}
 
-	void done_testing(unsigned tests) throw(fatal_exception) {
+	void done_testing(unsigned tests) noexcept(false) {
 		no_planned = false;
 		_done_testing(tests);
 	}
 
-	unsigned planned() throw() {
+	unsigned planned() noexcept(false) {
 		return expected;
 	}
-	unsigned encountered() throw() {
+	unsigned encountered() noexcept(false) {
 		return counter;
 	}
 
-	int exit_status() throw () {
+	int exit_status() noexcept(false) {
 //		bool passing;
 		if (!is_planned && encountered()) {
 			diag("Tests were run but no plan was declared and done_testing() was not seen.");
@@ -117,80 +124,86 @@ namespace TAP {
 			return 255;
 		}
 	}
-	bool summary() throw() {
+	bool summary() noexcept(false) {
 		return (not_oks != 0);
 	}
 
-	void bail_out(const std::string& reason) throw() {
+	void bail_out(const std::string& reason) noexcept(false) {
 		*details::output << "Bail out!  " << reason << std::endl;
 		std::exit(255); // Does not unwind stack!
 	}
 
-	bool ok(bool is_ok, const std::string& message) throw() {
+	bool ok(bool is_ok, const std::string& message) noexcept(false) {
 		const char* hot_or_not = is_ok ? "" : "not ";
-		*details::output << hot_or_not << "ok " << ++counter<< " - " << message << todo_test()  << std::endl;
+		*details::output << hot_or_not << "ok " << ++counter<< " - " << message << todo_test(is_ok)  << std::endl;
 		if (!is_ok && !is_todo_test()) {
 			++not_oks;
 		}
 		return is_ok;
 	}
-	bool not_ok(bool is_not_ok, const std::string& message) throw() {
+	bool not_ok(bool is_not_ok, const std::string& message) noexcept(false) {
 		return !ok(!is_not_ok, message);
 	}
 
-	bool pass(const std::string& message) throw() {
+	bool pass(const std::string& message) noexcept(false) {
 		return ok(true, message);
 	}
-	bool fail(const std::string& message) throw() {
+	bool fail(const std::string& message) noexcept(false) {
 		return ok(false, message);
 	}
 
-	void skip(unsigned num, const std::string& reason) throw ()  {
+	void skip(unsigned num, const std::string& reason) noexcept(false)  {
 		for(unsigned i = 0; i < num; ++i) {
-			pass(" # skip " + reason);
+          // output directly so that sentences can't have both skip and todo directive
+         *details::output << "ok " << ++counter << " - # skip " << reason << std::endl;
 		}
 	}
 
-	void set_output(std::ostream& new_output) throw (fatal_exception) {
+	void set_output(std::ostream& new_output) noexcept(false) {
 		if (is_planned) {
 			throw fatal_exception("Can't set output after plan()");
 		}
 		details::output = &new_output;
 	}
-	void set_error(std::ostream& new_error) throw(fatal_exception) {
+	void set_error(std::ostream& new_error) noexcept(false) {
 		if (is_planned) {
 			throw fatal_exception("Can't set error after plan()");
 		}
 		details::error = &new_error;
 	}
-	todo_guard::todo_guard() throw() : value(TODO) {
+	todo_guard::todo_guard() noexcept(false) : value(TODO) {
 	}
-	todo_guard::~todo_guard() throw() {
+	todo_guard::~todo_guard() noexcept(false) {
 		TODO = value;
+	}
+   optional_guard::optional_guard() noexcept(false) : value(OPTIONAL) {
+	}
+	optional_guard::~optional_guard() noexcept(false) {
+		OPTIONAL = value;
 	}
 	namespace details {
 		std::ostream* output = &std::cout;
 		std::ostream* error = &std::cout;
 		static std::stack<unsigned> block_expected;
-		void start_block(unsigned expected) throw() {
+		void start_block(unsigned expected) noexcept(false) {
 			block_expected.push(encountered() + expected);
 		}
-		unsigned stop_block() throw(fatal_exception) {
+		unsigned stop_block() noexcept(false) {
 			unsigned ret = block_expected.top();
 			block_expected.pop();
 			return ret;
 		}
 
-	 	char const * failed_test_msg() throw() {
+	 	char const * failed_test_msg() {
 		     return is_todo_test()?"Failed (TODO) test":"Failed test";
 		}
 
 	}
 
-	void skip(const std::string& reason) throw(details::Skip_exception) {
+	void skip(const std::string& reason) noexcept(false) {
 		throw details::Skip_exception(reason);
 	}
-	void skip_todo(const std::string& reason) throw(details::Todo_exception) {
+	void skip_todo(const std::string& reason) noexcept(false) {
 		throw details::Todo_exception(reason);
 	}
 
